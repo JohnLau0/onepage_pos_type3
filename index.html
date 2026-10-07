@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One-Page POS Demo · Airwallex Terminals</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --text: #14161a; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #4f46e5; --accent-soft: #eef0ff; --accent-ink: #fff;
+    --ok: #15803d; --ok-soft: #dcfce7; --bad: #b91c1c; --bad-soft: #fee2e2;
+    --warn: #b45309; --warn-soft: #fef3c7; --info: #1d4ed8; --info-soft: #dbeafe;
+    --radius: 14px;
+  }
+  body[data-store="fnb"] { --accent: #ea580c; --accent-soft: #fff1e6; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px 16px 40px; }
+  h1, h2, h3 { margin: 0; }
+  h2 { font-size: 16px; }
+  button, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: .5; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); margin-top: 16px; }
+  .pad { padding: 16px; }
+
+  /* header */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .logo { width: 48px; height: 48px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--line);
+    display: grid; place-items: center; overflow: hidden; flex: none; }
+  .logo img { width: 100%; height: 100%; object-fit: contain; }
+  .logo span { font-weight: 700; font-size: 20px; color: var(--accent); }
+  .brand h1 { font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seg { display: inline-flex; background: #e9ebef; border-radius: 10px; padding: 3px; }
+  .seg button { border: 0; background: transparent; padding: 7px 16px; border-radius: 8px; font-weight: 600; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+  /* setup */
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  #setup > summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; }
+  #setup > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  #setup[open] > summary::before { transform: rotate(90deg); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #eef0f3; color: #374151; }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); }
+  .setup-body { padding: 0 16px 16px; border-top: 1px solid var(--line); }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 16px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .field input[type=text], .field input[type=password], .field input[type=url], .field select {
+    width: 100%; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 9px; background: #fff; }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .field small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .inline { display: flex; gap: 8px; }
+  .logo-row { display: flex; align-items: center; gap: 10px; }
+  .btn { border: 1px solid #d1d5db; background: #fff; padding: 8px 12px; border-radius: 9px; font-weight: 600; }
+  .btn:hover:not(:disabled) { background: #f3f4f6; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+  .btn.danger { color: var(--bad); border-color: #fca5a5; }
+  .btn.sm { padding: 4px 9px; font-size: 13px; font-weight: 500; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .row select { flex: 1; min-width: 220px; padding: 9px 10px; border: 1px solid #d1d5db; border-radius: 9px; background: #fff; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .note { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; background: var(--warn-soft); color: #78350f; }
+  .okmsg { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; background: var(--ok-soft); color: var(--ok); word-break: break-word; }
+  .err { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; background: var(--bad-soft); color: var(--bad); white-space: pre-wrap; word-break: break-word; }
+
+  /* order */
+  .order { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; margin-top: 16px; }
+  .order > .card { margin-top: 0; }
+  .products { padding: 16px; }
+  .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
+  .prod { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+  .pimg { aspect-ratio: 1; background: var(--accent-soft); display: grid; place-items: center; cursor: pointer; }
+  .pimg img { width: 100%; height: 100%; object-fit: cover; }
+  .pimg .ph { font-size: 40px; font-weight: 700; color: var(--accent); opacity: .55; }
+  .pinfo { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .pname { font-weight: 600; line-height: 1.25; }
+  .prow { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; min-height: 32px; }
+  .price { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .qty { display: inline-flex; align-items: center; gap: 6px; }
+  .qty button { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #d1d5db; background: #fff; font-weight: 700; line-height: 1; padding: 0; }
+  .qty .add { width: auto; padding: 0 12px; background: var(--accent); border-color: var(--accent); color: #fff; }
+  .qty b { min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .cart { padding: 16px; position: sticky; top: 12px; }
+  .cart ul { list-style: none; margin: 10px 0; padding: 0; max-height: 330px; overflow: auto; }
+  .cart li { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 14px; }
+  .cart li .l { min-width: 0; }
+  .cart li .q { color: var(--muted); }
+  .cart .empty { color: var(--muted); padding: 18px 0; text-align: center; border: 0; }
+  .total { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; padding: 10px 0 12px; font-variant-numeric: tabular-nums; }
+  .charge { width: 100%; padding: 14px; font-size: 16px; border-radius: 12px; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 8px; text-align: center; min-height: 18px; }
+
+  /* result */
+  .result { padding: 16px; }
+  .stepper { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
+  .step { font-size: 12.5px; color: var(--muted); }
+  .step i { display: block; height: 5px; border-radius: 99px; background: #e5e7eb; margin-bottom: 6px; }
+  .step.done i { background: var(--accent); }
+  .step.done, .step.active { color: var(--text); font-weight: 600; }
+  .step.active i { background: var(--info); animation: pulse 1.2s infinite; }
+  .step.ok i { background: var(--ok); } .step.bad i { background: var(--bad); } .step.warn i { background: var(--warn); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .st-title { font-size: 20px; font-weight: 700; }
+  .st-title.ok { color: var(--ok); } .st-title.bad { color: var(--bad); } .st-title.warn { color: var(--warn); }
+  .st-sub { color: var(--muted); margin-top: 2px; word-break: break-word; }
+  dl.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 16px; margin: 14px 0 0; }
+  dl.meta div { min-width: 0; }
+  dl.meta dt { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  dl.meta dd { margin: 1px 0 0; font-weight: 600; word-break: break-all; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  .actions select { padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 9px; background: #fff; max-width: 220px; }
+
+  .hist-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; gap: 8px; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+  td.wrap-ok { white-space: normal; min-width: 160px; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: #fafafa; }
+  tr.row-main { cursor: pointer; } tr.row-main:hover { background: #fafafa; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #eef0f3; color: #374151; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); } .badge.bad { background: var(--bad-soft); color: var(--bad); }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); } .badge.info { background: var(--info-soft); color: var(--info); }
+  pre { margin: 0; padding: 10px 12px; background: #0f172a; color: #e2e8f0; border-radius: 10px; font-size: 12px; overflow: auto; max-height: 280px; white-space: pre-wrap; word-break: break-word; }
+  .empty-row { text-align: center; color: var(--muted); padding: 22px; }
+
+  #logbox > summary { padding: 14px 16px; font-weight: 600; }
+  #logbox .body { padding: 0 16px 16px; }
+  .logline { border-top: 1px solid var(--line); padding: 7px 0; font-size: 13px; }
+  .logline summary { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .logline code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; word-break: break-all; }
+  .m { font-weight: 700; min-width: 42px; } .s2 { color: var(--ok); } .s4 { color: var(--bad); }
+  .logline pre { margin-top: 6px; }
+
+  footer { margin: 28px 0 0; padding: 14px 16px; border-radius: var(--radius); background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; font-size: 13px; }
+  footer strong { display: block; margin-bottom: 2px; }
+
+  @media (max-width: 860px) {
+    .order { grid-template-columns: 1fr; }
+    .cart { position: static; }
+    .pgrid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  }
+</style>
+</head>
+<body data-store="fnb">
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo" id="logoBox"><img id="logoImg" alt="" hidden><span id="logoFallback"></span></div>
+      <h1 id="storeTitle"></h1>
+    </div>
+    <div class="seg" role="group" aria-label="Store type">
+      <button type="button" data-store="fnb" aria-pressed="true">F&amp;B</button>
+      <button type="button" data-store="retail" aria-pressed="false">Retail</button>
+    </div>
+  </header>
+
+  <!-- ============ SETUP ============ -->
+  <details class="card" id="setup" open>
+    <summary><h2>Setup</h2><span class="chips" id="chips"></span></summary>
+    <div class="setup-body">
+      <div class="fields">
+        <div class="field">
+          <label>Store logo</label>
+          <div class="logo-row">
+            <button class="btn" type="button" id="logoBtn">Upload logo</button>
+            <button class="btn" type="button" id="logoClear">Remove</button>
+            <input type="file" id="logoFile" accept="image/*" hidden>
+          </div>
+          <small>Saved in this browser, separately for Retail and F&amp;B.</small>
+        </div>
+        <div class="field">
+          <label for="storeName">Store name</label>
+          <input type="text" id="storeName" maxlength="40" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="env">Environment</label>
+          <select id="env">
+            <option value="demo">Demo (api-demo.airwallex.com)</option>
+            <option value="prod">Production (api.airwallex.com)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="currency">Currency</label>
+          <select id="currency"></select>
+        </div>
+        <div class="field">
+          <label for="clientId">Client ID</label>
+          <input type="text" id="clientId" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="apiKey">API key</label>
+          <div class="inline">
+            <input type="password" id="apiKey" autocomplete="off" spellcheck="false">
+            <button class="btn" type="button" id="showKey">Show</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="acct">Connected account ID (optional)</label>
+          <input type="text" id="acct" placeholder="acct_…" autocomplete="off" spellcheck="false">
+          <small>Optional. Terminals sit under your platform; this filters the terminal list and tags the Payment Intent (<code>connected_account_id</code>). No <code>x-on-behalf-of</code> header.</small>
+        </div>
+        <div class="field">
+          <label for="proxy">API proxy URL</label>
+          <input type="url" id="proxy" placeholder="https://awx-pos-proxy.yourname.workers.dev" autocomplete="off" spellcheck="false">
+          <small>Required on GitHub Pages: Airwallex blocks browser (CORS) calls to payment &amp; terminal endpoints. Deploy <code>cloudflare-worker.js</code> and paste its URL. Hard-code it in <code>DEFAULT_PROXY</code> to prefill for everyone.</small>
+        </div>
+      </div>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="remember"> Save Client ID &amp; API key in this browser (localStorage)</label>
+        <button class="btn sm" type="button" id="forget">Clear saved data</button>
+      </div>
+      <div class="note"><strong>Demo only.</strong> Your API key stays in this page and is sent only to Airwallex (via the proxy you set). Use <em>demo</em> credentials, never production keys, on a shared or public machine.</div>
+      <div class="row">
+        <button class="btn" type="button" id="testCreds">Test credentials</button>
+        <button class="btn primary" type="button" id="loadTerm">Load terminals</button>
+        <select id="termSel" aria-label="Terminal"><option value="">— load terminals first —</option></select>
+      </div>
+      <div class="okmsg" id="setupOk" hidden></div>
+      <div class="err" id="setupErr" hidden></div>
+    </div>
+  </details>
+
+  <!-- ============ ORDER ============ -->
+  <div class="order">
+    <section class="card products">
+      <h2 id="catTitle">Menu</h2>
+      <div class="pgrid" id="grid"></div>
+    </section>
+    <aside class="card cart">
+      <h2>Current order</h2>
+      <ul id="lines"></ul>
+      <div class="total"><span>Total</span><span id="total">—</span></div>
+      <button class="btn primary charge" type="button" id="charge">Charge</button>
+      <button class="btn danger charge" type="button" id="cartCancel" hidden>Cancel payment</button>
+      <div class="hint" id="chargeHint"></div>
+      <div style="text-align:center;margin-top:6px"><button class="btn sm" type="button" id="clearCart">Clear order</button></div>
+    </aside>
+  </div>
+
+  <!-- ============ RESULT ============ -->
+  <section class="card result" id="result">
+    <h2>Payment result</h2>
+    <div class="stepper" id="stepper">
+      <div class="step"><i></i>Payment created</div>
+      <div class="step"><i></i>Sent to terminal</div>
+      <div class="step"><i></i>Customer paying</div>
+      <div class="step"><i></i>Result</div>
+    </div>
+    <div class="st-title" id="stTitle">No payment yet</div>
+    <div class="st-sub" id="stSub">Add items, pick a terminal and press Charge.</div>
+    <dl class="meta" id="stMeta"></dl>
+    <div class="actions">
+      <button class="btn danger" type="button" id="btnCancel" hidden>Cancel payment</button>
+      <button class="btn" type="button" id="btnTermCancel" title="POST /pos/terminals/{id}/cancel_current_operation">Cancel current action on terminal</button>
+      <button class="btn" type="button" id="btnCheck" title="GET /payment_intents/{id}">Check payment status now</button>
+      <span class="hint" id="checkMsg" style="margin:0;text-align:left"></span>
+      <span class="hint" id="termMsg" style="margin:0;text-align:left"></span>
+      <span id="simBox" hidden>
+        <select id="simSel" aria-label="Simulation scenario"></select>
+        <button class="btn" type="button" id="btnSim">Simulate customer tap (demo)</button>
+      </span>
+    </div>
+  </section>
+
+  <section class="card" id="history">
+    <div class="hist-head">
+      <h2>Payment records</h2>
+      <button class="btn sm" type="button" id="clearHist">Clear records</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Time</th><th>Order</th><th>Items</th><th style="text-align:right">Amount</th><th>Terminal</th><th>Payment Intent</th><th>Status</th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="card" id="logbox">
+    <summary>API call log <span class="chip" id="logCount">0</span></summary>
+    <div class="body"><div id="logList"></div></div>
+  </details>
+
+  <footer>
+    <strong>Unofficial demo</strong>
+    This is not an official Airwallex demo or sample. Do not implement it this way in production: never put API keys / client secrets in front-end code and never create or confirm Payment Intents from the browser — do that on your server and only hand the result to the client.
+  </footer>
+</div>
+
+<script>
+'use strict';
+
+/* ---------------------------------------------------------------
+   Catalogue — edit freely. Images live in assets/<store>/<img>.
+   Prices are in major currency units (e.g. 29 = 29.00).
+---------------------------------------------------------------- */
+const CATALOG = {
+  retail: {
+    label: 'Retail', defaultName: 'Urban Threads', title: 'Shop', dir: 'assets/retail/',
+    items: [
+      { id: 'tee',        name: 'Basic Tee',  price: 29,  img: 'tee.png' },
+      { id: 'hoodie',     name: 'Hoodie',     price: 69,  img: 'hoodie.png' },
+      { id: 'sneakers',   name: 'Sneakers',   price: 119, img: 'sneakers.png' },
+      { id: 'cap',        name: 'Cap',        price: 25,  img: 'cap.png' },
+      { id: 'tote-bag',   name: 'Tote Bag',   price: 35,  img: 'tote-bag.png' },
+      { id: 'sunglasses', name: 'Sunglasses', price: 59,  img: 'sunglasses.png' },
+      { id: 'watch',      name: 'Watch',      price: 149, img: 'watch.png' },
+      { id: 'backpack',   name: 'Backpack',   price: 89,  img: 'backpack.png' }
+    ]
+  },
+  fnb: {
+    label: 'F&B', defaultName: 'Noodle & Co', title: 'Menu', dir: 'assets/fnb/',
+    items: [
+      { id: 'burger',     name: 'Burger',     price: 12, img: 'burger.png' },
+      { id: 'fries',      name: 'Fries',      price: 5,  img: 'fries.png' },
+      { id: 'ramen',      name: 'Ramen',      price: 14, img: 'ramen.png' },
+      { id: 'salad',      name: 'Salad',      price: 9,  img: 'salad.png' },
+      { id: 'milk-tea',   name: 'Milk Tea',   price: 6,  img: 'milk-tea.png' },
+      { id: 'coffee',     name: 'Coffee',     price: 5,  img: 'coffee.png' },
+      { id: 'cola',       name: 'Cola',       price: 3,  img: 'cola.png' },
+      { id: 'cheesecake', name: 'Cheesecake', price: 8,  img: 'cheesecake.png' }
+    ]
+  }
+};
+const DEFAULT_LOGO = 'assets/logo-default.png';
+// After deploying cloudflare-worker.js, put its URL here so the hosted page works with no setup, e.g.
+// 'https://awx-pos-proxy.yourname.workers.dev'. Leave '' to type it in the Setup panel instead.
+const DEFAULT_PROXY = '';
+const CURRENCIES = ['HKD', 'SGD', 'USD', 'AUD', 'GBP', 'EUR', 'CNY', 'NZD', 'CAD'];
+const ENVS = { demo: 'https://api-demo.airwallex.com', prod: 'https://api.airwallex.com' };
+const POLL_MS = 1500, POLL_TIMEOUT_MS = 180000, MAX_HISTORY = 30;
+const FINAL = new Set(['SUCCEEDED', 'CANCELLED', 'AUTHORISED', 'FAILED', 'ERROR', 'TIMEOUT']);
+
+/* ---------------- helpers ---------------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
+  : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
+};
+const readJSON = (k, d) => { try { return JSON.parse(store.get(k)) ?? d; } catch { return d; } };
+
+/* ---------------- state ---------------- */
+const S = {
+  cfg: Object.assign({ store: 'fnb', env: 'demo', currency: 'HKD', acct: '', proxy: '', terminal: '', remember: false, names: {} }, readJSON('awxpos.cfg', {})),
+  creds: { clientId: '', apiKey: '' },
+  cart: {},
+  terminals: [],
+  token: null, tokenExp: 0, tokenFor: '', verifiedFor: '',
+  cur: null,            // in-flight payment { rec, term, active, cancelled }
+  hist: readJSON('awxpos.hist', []),
+  log: [],
+  scenarios: []
+};
+if (S.cfg.remember) Object.assign(S.creds, readJSON('awxpos.cred', {}));
+const saveCfg = () => store.set('awxpos.cfg', JSON.stringify(S.cfg));
+const saveHist = () => store.set('awxpos.hist', JSON.stringify(S.hist.slice(0, MAX_HISTORY)));
+
+/* ---------------- money ---------------- */
+const cents = (major) => Math.round(major * 100);
+const fmt = (c, cur = S.cfg.currency) => {
+  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(c / 100); }
+  catch { return (c / 100).toFixed(2) + ' ' + cur; }
+};
+const items = () => CATALOG[S.cfg.store].items;
+const cartLines = () => items().filter((i) => S.cart[i.id] > 0).map((i) => ({ ...i, qty: S.cart[i.id] }));
+const cartTotal = () => cartLines().reduce((s, l) => s + cents(l.price) * l.qty, 0);
+
+/* ---------------- API layer ---------------- */
+class AwxError extends Error {
+  constructor(msg, status, data) { super(msg); this.status = status; this.data = data; }
+}
+function apiUrl(path, query) {
+  const proxy = (S.cfg.proxy || DEFAULT_PROXY).trim().replace(/\/+$/, '');
+  const url = proxy ? `${proxy}/${S.cfg.env}${path}` : ENVS[S.cfg.env] + path;
+  const q = query ? new URLSearchParams(query).toString() : '';
+  return q ? `${url}?${q}` : url;
+}
+const NETWORK_HELP = 'The browser could not reach the API. Airwallex blocks browser (CORS) calls to payment and terminal endpoints, so ' +
+  'set an API proxy URL in Setup (deploy cloudflare-worker.js — see README). Check the browser console for details.';
+
+function redact(o) {
+  if (!o || typeof o !== 'object') return o;
+  const c = Array.isArray(o) ? [...o] : { ...o };
+  for (const k of Object.keys(c)) {
+    if (/token|secret|api[-_]?key/i.test(k)) c[k] = '••••';
+    else if (typeof c[k] === 'object') c[k] = redact(c[k]);
+  }
+  return c;
+}
+function logCall(method, path, status, ms, req, res) {
+  S.log.unshift({ t: new Date(), method, path, status, ms, req: redact(req), res: redact(res) });
+  S.log.length = Math.min(S.log.length, 60);
+  renderLog();
+}
+
+async function login() {
+  const { clientId, apiKey } = S.creds;
+  if (!clientId || !apiKey) throw new AwxError('Enter Client ID and API key first.', 0);
+  const t0 = performance.now();
+  let res, data;
+  try {
+    res = await fetch(apiUrl('/api/v1/authentication/login'), { method: 'POST', headers: { 'x-client-id': clientId, 'x-api-key': apiKey } });
+    data = await res.json().catch(() => ({}));
+  } catch (e) {
+    logCall('POST', '/api/v1/authentication/login', 'ERR', Math.round(performance.now() - t0), null, { error: e.message });
+    throw new AwxError(NETWORK_HELP, 0);
+  }
+  logCall('POST', '/api/v1/authentication/login', res.status, Math.round(performance.now() - t0), null, data);
+  if (!res.ok || !data.token) throw new AwxError(`Login failed (${res.status}): ${data.message || data.code || 'check Client ID, API key and environment'}`, res.status, data);
+  const exp = Date.parse(String(data.expires_at || '').replace(/([+-]\d\d)(\d\d)$/, '$1:$2'));
+  S.token = data.token; S.tokenExp = Number.isFinite(exp) ? exp : Date.now() + 25 * 60000;
+  S.tokenFor = `${S.cfg.env}|${clientId}|${apiKey}`;
+  return S.token;
+}
+async function getToken() {
+  const key = `${S.cfg.env}|${S.creds.clientId}|${S.creds.apiKey}`;
+  if (S.token && S.tokenFor === key && S.tokenExp - Date.now() > 60000) return S.token;
+  return login();
+}
+
+async function api(method, path, { body, query, quiet = false, retried = false } = {}) {
+  const headers = { Authorization: 'Bearer ' + await getToken() };
+  if (body || method === 'POST') headers['Content-Type'] = 'application/json';   // Airwallex only accepts JSON
+  const t0 = performance.now();
+  let res, data;
+  try {
+    res = await fetch(apiUrl(path, query), { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const txt = await res.text();
+    try { data = txt ? JSON.parse(txt) : {}; } catch { data = { raw: txt.slice(0, 500) }; }
+  } catch (e) {
+    logCall(method, path, 'ERR', Math.round(performance.now() - t0), body, { error: e.message });
+    throw new AwxError(NETWORK_HELP, 0);
+  }
+  const full = query ? `${path}?${new URLSearchParams(query)}` : path;
+  if (!quiet || !res.ok) logCall(method, full, res.status, Math.round(performance.now() - t0), body, data);
+  if (res.status === 401 && !retried) { S.token = null; return api(method, path, { body, query, quiet, retried: true }); }
+  if (!res.ok) {
+    let detail = data.message || data.code || res.statusText || 'request failed';
+    if (data.source) detail += ` [source: ${typeof data.source === 'string' ? data.source : JSON.stringify(data.source)}]`;
+    if (Array.isArray(data.errors) && data.errors.length) detail += ` [${data.errors.map((x) => x.message || x.code || JSON.stringify(x)).join('; ')}]`;
+    throw new AwxError(`${detail} (HTTP ${res.status}${data.code ? ' · ' + data.code : ''})`, res.status, data);
+  }
+  return data;
+}
+
+/* ---------------- rendering: brand / setup ---------------- */
+function storeName() { return S.cfg.names[S.cfg.store] || CATALOG[S.cfg.store].defaultName; }
+function logoKey() { return 'awxpos.logo.' + S.cfg.store; }
+
+function renderBrand() {
+  document.body.dataset.store = S.cfg.store;
+  document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.store === S.cfg.store)));
+  const name = storeName();
+  $('storeTitle').textContent = name;
+  $('storeName').value = S.cfg.names[S.cfg.store] || '';
+  $('storeName').placeholder = CATALOG[S.cfg.store].defaultName;
+  document.title = `${name} · POS demo`;
+  $('logoFallback').textContent = (name.trim()[0] || '?').toUpperCase();
+  const img = $('logoImg');
+  img.hidden = true; $('logoFallback').hidden = false;
+  img.onload = () => { img.hidden = false; $('logoFallback').hidden = true; };
+  img.onerror = () => { img.hidden = true; $('logoFallback').hidden = false; };
+  img.src = store.get(logoKey()) || DEFAULT_LOGO;
+}
+
+function renderChips() {
+  const t = S.terminals.find((x) => x.id === S.cfg.terminal);
+  const chips = [
+    `<span class="chip">${S.cfg.env === 'demo' ? 'Demo' : 'Production'}</span>`,
+    S.verifiedFor && S.verifiedFor === `${S.cfg.env}|${S.creds.clientId}|${S.creds.apiKey}` ? '<span class="chip ok">Credentials verified</span>'
+      : S.creds.clientId && S.creds.apiKey ? '<span class="chip">Credentials set (untested)</span>' : '<span class="chip">No credentials</span>',
+    t ? `<span class="chip ok">Terminal: ${esc(t.nickname || t.serial_number || t.id)}</span>` : '<span class="chip">No terminal</span>'
+  ];
+  $('chips').innerHTML = chips.join('');
+}
+
+function renderTerminals() {
+  const sel = $('termSel');
+  if (!S.terminals.length) {
+    sel.innerHTML = '<option value="">— load terminals first —</option>';
+  } else {
+    sel.innerHTML = '<option value="">— select a terminal —</option>' + S.terminals.map((t) => {
+      const label = `${t.nickname || 'Terminal'} · ${t.serial_number || t.id} · ${t.model || ''} · ${t.status}`;
+      return `<option value="${esc(t.id)}"${t.status !== 'ACTIVE' ? ' disabled' : ''}>${esc(label)}</option>`;
+    }).join('');
+    sel.value = S.terminals.some((t) => t.id === S.cfg.terminal && t.status === 'ACTIVE') ? S.cfg.terminal : '';
+  }
+  renderChips();
+}
+
+// Platform-owned terminals: the connected account is a filter, not a header
+function terminalQuery(size) {
+  const q = { page_size: size };
+  if (S.cfg.acct.trim()) q.connected_account_id = S.cfg.acct.trim();
+  return q;
+}
+function setupError(msg) { const e = $('setupErr'); e.hidden = !msg; e.textContent = msg || ''; if (msg) setupOk(''); }
+function setupOk(msg) { const e = $('setupOk'); e.hidden = !msg; e.textContent = msg || ''; }
+
+async function testCredentials() {
+  setupError(''); setupOk('');
+  const btn = $('testCreds'); btn.disabled = true; btn.textContent = 'Testing…';
+  const envName = S.cfg.env === 'demo' ? 'demo' : 'production';
+  try {
+    S.token = null;                       // force a fresh login
+    await login();
+    S.verifiedFor = S.tokenFor;
+    const exp = new Date(S.tokenExp).toLocaleTimeString();
+    // second check: the account header / permissions, using a harmless read call
+    let extra = '';
+    try { await api('GET', '/api/v1/pa/pos/terminals', { query: terminalQuery(1) }); extra = ' Terminals API reachable' + (S.cfg.acct.trim() ? ' for the connected account.' : '.'); }
+    catch (e) { extra = ` But the Terminals API call failed: ${e.message}`; }
+    setupOk(`✓ Credentials work on ${envName}. Token valid until ${exp}.${extra}`);
+    if (extra.includes('failed')) { setupOk(''); setupError(`Login OK on ${envName} (token valid until ${exp}).${extra}`); }
+  } catch (e) { S.verifiedFor = ''; setupError('✗ ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Test credentials'; renderChips(); }
+}
+
+/* ---------------- rendering: products / cart ---------------- */
+function renderProducts() {
+  const cat = CATALOG[S.cfg.store];
+  $('catTitle').textContent = cat.title;
+  $('grid').innerHTML = cat.items.map((i) => `
+    <article class="prod" data-id="${i.id}">
+      <div class="pimg" data-act="add"><img src="${cat.dir}${i.img}" alt="${esc(i.name)}" loading="lazy"></div>
+      <div class="pinfo">
+        <div class="pname">${esc(i.name)}</div>
+        <div class="prow"><span class="price">${fmt(cents(i.price))}</span><span class="qty" data-qty></span></div>
+      </div>
+    </article>`).join('');
+  $('grid').querySelectorAll('img').forEach((img) => {
+    img.onerror = () => { const d = document.createElement('span'); d.className = 'ph'; d.textContent = img.alt[0] || '?'; img.replaceWith(d); };
+  });
+  renderQtys();
+}
+function renderQtys() {
+  document.querySelectorAll('.prod').forEach((el) => {
+    const q = S.cart[el.dataset.id] || 0;
+    el.querySelector('[data-qty]').innerHTML = q
+      ? `<button type="button" data-act="dec" aria-label="Remove one">−</button><b>${q}</b><button type="button" data-act="inc" aria-label="Add one">+</button>`
+      : '<button type="button" class="add" data-act="add">Add</button>';
+  });
+}
+function renderCart() {
+  const lines = cartLines();
+  $('lines').innerHTML = lines.length
+    ? lines.map((l) => `<li><span class="l">${esc(l.name)} <span class="q">× ${l.qty}</span></span><span>${fmt(cents(l.price) * l.qty)}</span></li>`).join('')
+    : '<li class="empty">No items yet</li>';
+  const total = cartTotal();
+  $('total').textContent = fmt(total);
+  const term = S.terminals.find((t) => t.id === S.cfg.terminal);
+  const busy = S.cur?.active;
+  let why = '';
+  if (busy) why = 'Payment in progress…';
+  else if (!S.creds.clientId || !S.creds.apiKey) why = 'Enter credentials in Setup';
+  else if (!term) why = 'Load and select a terminal in Setup';
+  else if (!total) why = 'Add at least one item';
+  $('charge').disabled = !!why;
+  $('charge').textContent = total ? `Charge ${fmt(total)}${term ? ' on ' + (term.nickname || term.serial_number) : ''}` : 'Charge';
+  $('chargeHint').textContent = why;
+  $('clearCart').disabled = busy || !lines.length;
+}
+function cartChanged() { renderQtys(); renderCart(); }
+
+/* ---------------- rendering: result / history / log ---------------- */
+const BADGE = { SUCCEEDED: 'ok', AUTHORISED: 'warn', CANCELLED: 'bad', FAILED: 'bad', ERROR: 'bad', TIMEOUT: 'warn', WAITING_FOR_CUSTOMER: 'info', SENT_TO_TERMINAL: 'info', CREATED: 'info', CREATING: 'info' };
+const LABEL = { SUCCEEDED: 'Paid', AUTHORISED: 'Authorised', CANCELLED: 'Cancelled', FAILED: 'Failed', ERROR: 'Error', TIMEOUT: 'Timed out', WAITING_FOR_CUSTOMER: 'Awaiting customer', SENT_TO_TERMINAL: 'Sent to terminal', CREATED: 'Created', CREATING: 'Creating' };
+
+// step: 0 idle … 4 finished; tone: '' | ok | bad | warn
+function setStatus(step, tone, title, sub) {
+  document.querySelectorAll('#stepper .step').forEach((el, i) => {
+    el.className = 'step';
+    if (step === 0) return;
+    if (i + 1 < step) el.classList.add('done');
+    else if (i + 1 === step) el.classList.add(step === 4 ? (tone || 'done') : 'active');
+  });
+  const t = $('stTitle'); t.textContent = title; t.className = 'st-title ' + (tone || '');
+  $('stSub').textContent = sub || '';
+}
+function renderMeta(rec, pi) {
+  if (!rec) { $('stMeta').innerHTML = ''; return; }
+  const att = pi?.latest_payment_attempt;
+  const card = att?.payment_method?.card;
+  const rows = [
+    ['Order', rec.order], ['Amount', fmt(cents(rec.amount), rec.currency)], ['Terminal', rec.terminalName],
+    ['Payment Intent', rec.piId || '—'], ['PI status', pi?.status || '—'],
+    ['Latest attempt', att ? `${att.status || ''}${att.failure_code ? ' · ' + att.failure_code : ''}` : '—'],
+    ['Card', card ? `${card.brand || ''} •••• ${card.last4 || ''}` : '—']
+  ];
+  $('stMeta').innerHTML = rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+}
+function renderActions() {
+  const active = !!S.cur?.active;
+  $('btnCancel').hidden = !active;
+  $('cartCancel').hidden = !active;
+  $('charge').hidden = active;
+  $('simBox').hidden = !(active && S.cfg.env === 'demo' && S.cur.sent);
+}
+
+function renderHistory() {
+  const body = $('histBody');
+  if (!S.hist.length) { body.innerHTML = '<tr><td colspan="7" class="empty-row">No payments yet</td></tr>'; return; }
+  body.innerHTML = S.hist.map((r, i) => {
+    const st = r.status;
+    const refresh = r.piId && !FINAL.has(st) && !(S.cur?.active && S.cur.rec === r)
+      ? ` <button class="btn sm" type="button" data-refresh="${i}">Refresh</button>` : '';
+    const itemTxt = r.items.map((x) => `${x.qty}× ${x.name}`).join(', ');
+    return `<tr class="row-main" data-row="${i}">
+      <td>${new Date(r.ts).toLocaleString()}</td><td>${esc(r.order)}</td>
+      <td class="wrap-ok">${esc(itemTxt)}</td>
+      <td class="num">${fmt(cents(r.amount), r.currency)}</td>
+      <td>${esc(r.terminalName)}</td><td>${esc(r.piId || '—')}</td>
+      <td><span class="badge ${BADGE[st] || ''}">${esc(LABEL[st] || st)}</span>${esc(r.detail ? ' ' + r.detail : '')}${refresh}</td></tr>
+      <tr data-detail="${i}" hidden><td colspan="7"><pre>${esc(JSON.stringify(r.raw || { note: 'No Payment Intent data captured' }, null, 2))}</pre></td></tr>`;
+  }).join('');
+}
+function renderLog() {
+  $('logCount').textContent = S.log.length;
+  $('logList').innerHTML = S.log.map((l) => `
+    <details class="logline"><summary><span class="m">${l.method}</span><code>${esc(l.path)}</code>
+      <span class="${String(l.status).startsWith('2') ? 's2' : 's4'}">${esc(l.status)}</span><span style="color:var(--muted)">${l.ms} ms · ${l.t.toLocaleTimeString()}</span></summary>
+      <pre>${esc(JSON.stringify({ request: l.req, response: l.res }, null, 2))}</pre></details>`).join('')
+    || '<div class="empty-row">Nothing yet</div>';
+}
+
+/* ---------------- terminals ---------------- */
+async function loadTerminals() {
+  setupError(''); setupOk('');
+  const btn = $('loadTerm'); btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const r = await api('GET', '/api/v1/pa/pos/terminals', { query: terminalQuery(100) });
+    const list = r.items || [];
+    S.terminals = list.filter((t) => t.status !== 'TERMINATED');
+    if (!S.terminals.some((t) => t.id === S.cfg.terminal)) {
+      const active = S.terminals.filter((t) => t.status === 'ACTIVE');
+      S.cfg.terminal = active.length === 1 ? active[0].id : '';
+    }
+    saveCfg(); renderTerminals(); renderCart();
+    if (!S.terminals.length) setupError('No terminals found for this account. Check the environment, connected account ID, and that the terminal is activated.');
+    else if (S.cfg.terminal) $('setup').open = false;
+  } catch (e) { setupError(e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Load terminals'; }
+}
+
+/* ---------------- payment flow ---------------- */
+function persistRec(rec) { saveHist(); renderHistory(); }
+function mapPI(pi) {
+  if (pi.status === 'SUCCEEDED') return 'SUCCEEDED';
+  if (pi.status === 'CANCELLED') return 'CANCELLED';
+  if (pi.status === 'REQUIRES_CAPTURE') return 'AUTHORISED';
+  return null;
+}
+
+async function charge() {
+  if (S.cur?.active) return;
+  const lines = cartLines(), total = cartTotal();
+  const term = S.terminals.find((t) => t.id === S.cfg.terminal);
+  if (!lines.length || !term) return;
+  const rec = {
+    order: 'POS-' + Date.now(), ts: Date.now(), amount: total / 100, currency: S.cfg.currency,
+    items: lines.map((l) => ({ name: l.name, qty: l.qty })), terminalId: term.id,
+    terminalName: term.nickname || term.serial_number || term.id, piId: null, status: 'CREATING', detail: '', raw: null
+  };
+  S.hist.unshift(rec); persistRec(rec);
+  const cur = S.cur = { rec, term, active: true, cancelled: false, sent: false };
+  renderCart(); renderActions(); renderMeta(rec);
+  try {
+    setStatus(1, '', 'Creating payment…', 'Creating the Payment Intent');
+    const pi = await api('POST', '/api/v1/pa/payment_intents/create', {
+      body: {
+        request_id: uuid(), amount: total / 100, currency: rec.currency, merchant_order_id: rec.order,
+        ...(S.cfg.acct.trim() ? { connected_account_id: S.cfg.acct.trim() } : {})
+      }
+    });
+    rec.piId = pi.id; rec.status = 'CREATED'; rec.raw = pi; persistRec(rec); renderMeta(rec, pi);
+    if (cur.cancelled) return;
+
+    setStatus(2, '', 'Sending to terminal…', `Pushing ${pi.id} to ${rec.terminalName}`);
+    await api('POST', `/api/v1/pa/pos/terminals/${encodeURIComponent(term.id)}/process_payment_intent`, {
+      body: {
+        request_id: uuid(), payment_intent_id: pi.id,
+        payment_method_options: { card: { authorization_type: 'final_auth', auto_capture: true } }
+      }
+    });
+    cur.sent = true; rec.status = 'WAITING_FOR_CUSTOMER'; persistRec(rec);
+    setStatus(3, '', 'Waiting for the customer…', `Ask the customer to tap, insert or swipe on ${rec.terminalName}`);
+    renderActions();
+    if (S.cfg.env === 'demo') loadScenarios();
+    await poll(cur);
+  } catch (e) {
+    if (cur.cancelled) return;
+    rec.status = 'ERROR'; rec.detail = e.message; persistRec(rec);
+    setStatus(4, 'bad', 'Payment could not be started', e.message);
+    cur.active = false;
+  } finally {
+    cur.active = false;
+    renderActions(); renderCart(); renderHistory();
+  }
+}
+
+// Apply a final Payment Intent status to the record + status card. Returns true if the PI is final.
+function finishPayment(cur, rec, pi) {
+  const done = mapPI(pi);
+  if (!done) return false;
+  const live = cur && cur.rec === rec;
+  if (live) cur.active = false;
+  rec.status = done; rec.detail = ''; rec.raw = pi; persistRec(rec);
+  if (done === 'SUCCEEDED') {
+    setStatus(4, 'ok', 'Payment successful', `${fmt(cents(rec.amount), rec.currency)} paid on ${rec.terminalName}`);
+    if (live) { S.cart = {}; cartChanged(); }
+  } else if (done === 'AUTHORISED') setStatus(4, 'warn', 'Authorised — awaiting capture', 'The payment was authorised but not captured.');
+  else setStatus(4, 'bad', 'Payment cancelled', 'The Payment Intent was cancelled.');
+  renderMeta(rec, pi); renderActions(); renderCart();
+  return true;
+}
+
+// Manual "check now": retrieve the current (or most recent) Payment Intent once, on demand.
+async function checkPaymentNow() {
+  const cur = S.cur;
+  const rec = cur?.active ? cur.rec : S.hist.find((r) => r.piId);
+  const msg = $('checkMsg'), btn = $('btnCheck');
+  if (!rec?.piId) { msg.textContent = 'No Payment Intent to check yet — press Charge first.'; return; }
+  btn.disabled = true; msg.textContent = 'Checking…';
+  try {
+    const pi = await api('GET', `/api/v1/pa/payment_intents/${encodeURIComponent(rec.piId)}`);
+    if (cur?.cancelled && cur.rec === rec) { msg.textContent = 'That payment was cancelled.'; return; }
+    rec.raw = pi; renderMeta(rec, pi);
+    const att = pi.latest_payment_attempt;
+    finishPayment(cur, rec, pi);   // no-op unless the Payment Intent is now final
+    renderHistory();
+    msg.textContent = `${new Date().toLocaleTimeString()} · ${rec.piId} · status: ${pi.status}${att?.status ? ' / attempt ' + att.status : ''}`;
+  } catch (e) { msg.textContent = '✗ ' + e.message; }
+  finally { btn.disabled = false; }
+}
+
+async function poll(cur) {
+  const { rec } = cur;
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  let last = '', n = 0;
+  while (cur.active && Date.now() < deadline) {
+    await sleep(POLL_MS);
+    if (!cur.active) return;
+    n++;
+    let pi;
+    try { pi = await api('GET', `/api/v1/pa/payment_intents/${encodeURIComponent(rec.piId)}`, { quiet: true }); }
+    catch (e) { if (e.status === 0 || e.status >= 500) continue; throw e; }
+    rec.raw = pi; renderMeta(rec, pi);
+    const att = pi.latest_payment_attempt;
+    if (!mapPI(pi) && !(att?.status && /FAIL|DECLIN|CANCEL/i.test(att.status))) {
+      $('stSub').textContent = `Checking Payment Intent every ${POLL_MS / 1000}s · check #${n} · status: ${pi.status}${att?.status ? ' / attempt ' + att.status : ''}`;
+    }
+    const sig = `${pi.status}|${att?.status || ''}`;
+    if (sig !== last) {
+      last = sig;
+      logCall('GET', `/api/v1/pa/payment_intents/${rec.piId} (status change)`, 200, 0, null, { status: pi.status, latest_payment_attempt: att?.status });
+      if (att?.status && /FAIL|DECLIN|CANCEL/i.test(att.status) && !mapPI(pi)) {
+        setStatus(3, '', 'Attempt failed — customer can retry', `Latest attempt: ${att.status}${att.failure_code ? ' (' + att.failure_code + ')' : ''}`);
+      }
+    }
+    if (finishPayment(cur, rec, pi)) return;
+  }
+  if (cur.active) {
+    cur.active = false; rec.status = 'TIMEOUT'; rec.detail = '— use Refresh to re-check'; persistRec(rec);
+    setStatus(4, 'warn', 'Timed out waiting for the terminal', 'No final result after 3 minutes. Use Refresh in the records table to check the Payment Intent again.');
+  }
+}
+
+async function cancelPayment() {
+  const cur = S.cur;
+  if (!cur?.active) return;
+  cur.cancelled = true; cur.active = false;
+  const { rec, term } = cur;
+  setStatus(4, 'warn', 'Cancelling…', 'Stopping the terminal and cancelling the Payment Intent');
+  renderActions();
+  const notes = [];
+  if (cur.sent) { try { await api('POST', `/api/v1/pa/pos/terminals/${encodeURIComponent(term.id)}/cancel_current_operation`); } catch (e) { notes.push('Terminal: ' + e.message); } }
+  if (rec.piId) {
+    try {
+      await api('POST', `/api/v1/pa/payment_intents/${encodeURIComponent(rec.piId)}/cancel`, {
+        body: { request_id: uuid(), cancellation_reason: 'Cancelled by merchant', cancellation_reason_code: 'cancelled_by_customer' }
+      });
+    } catch (e) { notes.push('Payment Intent: ' + e.message); }
+  }
+  rec.status = 'CANCELLED'; rec.detail = notes.length ? '(see log)' : ''; persistRec(rec);
+  setStatus(4, 'bad', 'Payment cancelled', notes.join(' · ') || 'Cancelled by the merchant.');
+  renderCart(); renderHistory();
+}
+
+// Stops whatever the selected terminal is doing (independent of the Payment Intent flow).
+async function cancelTerminalAction() {
+  const term = S.terminals.find((t) => t.id === S.cfg.terminal);
+  const msg = $('termMsg'), btn = $('btnTermCancel');
+  if (!term) { msg.textContent = 'Load and select a terminal in Setup first.'; return; }
+  btn.disabled = true; msg.textContent = 'Sending…';
+  try {
+    await api('POST', `/api/v1/pa/pos/terminals/${encodeURIComponent(term.id)}/cancel_current_operation`);
+    msg.textContent = `✓ Cancel sent to ${term.nickname || term.serial_number || term.id} at ${new Date().toLocaleTimeString()}.` +
+      (S.cur?.active ? ' The Payment Intent is still open — use "Cancel payment" to cancel it too.' : '');
+  } catch (e) { msg.textContent = '✗ ' + e.message; }
+  finally { btn.disabled = false; }
+}
+
+async function refreshRow(i) {
+  const r = S.hist[i]; if (!r?.piId) return;
+  try {
+    const pi = await api('GET', `/api/v1/pa/payment_intents/${encodeURIComponent(r.piId)}`);
+    r.raw = pi; r.detail = '';
+    r.status = mapPI(pi) || (r.status === 'TIMEOUT' ? 'TIMEOUT' : r.status);
+    persistRec(r);
+  } catch (e) { r.detail = '— ' + e.message; persistRec(r); }
+}
+
+/* ---------------- demo-env simulation ---------------- */
+async function loadScenarios() {
+  if (S.scenarios.length) return;
+  let names = [];
+  try {
+    const r = await api('GET', '/api/v1/simulation/pa/pos/terminals/payment_scenarios', { quiet: true });
+    const arr = Array.isArray(r) ? r : (r.items || r.scenarios || r.payment_scenarios || []);
+    names = arr.map((x) => (typeof x === 'string' ? x : x.name || x.payment_scenario_name || x.id)).filter(Boolean);
+  } catch { /* fall back below */ }
+  S.scenarios = names.length ? names : ['visa_chip_with_pin'];
+  $('simSel').innerHTML = S.scenarios.map((n) => `<option>${esc(n)}</option>`).join('');
+}
+async function simulate() {
+  const cur = S.cur; if (!cur?.active) return;
+  $('btnSim').disabled = true;
+  try {
+    await api('POST', '/api/v1/simulation/pa/pos/terminals/confirm_payment_intent', {
+      body: { terminal_id: cur.term.id, payment_scenario_name: $('simSel').value || 'visa_chip_with_pin' }
+    });
+  } catch (e) { $('stSub').textContent = 'Simulation failed: ' + e.message; }
+  finally { $('btnSim').disabled = false; }
+}
+
+/* ---------------- logo upload ---------------- */
+function fileToLogo(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || 256, h = img.naturalHeight || 256, k = Math.min(1, 256 / Math.max(w, h));
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/png'));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+    img.src = url;
+  });
+}
+
+/* ---------------- events ---------------- */
+function bind() {
+  document.querySelector('.seg').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-store]'); if (!b || b.dataset.store === S.cfg.store) return;
+    if (S.cur?.active) return;
+    S.cfg.store = b.dataset.store; S.cart = {}; saveCfg(); renderBrand(); renderProducts(); renderCart();
+  });
+
+  $('grid').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]'); const card = e.target.closest('.prod'); if (!a || !card) return;
+    const id = card.dataset.id, act = a.dataset.act;
+    if (act === 'add' || act === 'inc') S.cart[id] = (S.cart[id] || 0) + 1;
+    else if (act === 'dec') S.cart[id] = Math.max(0, (S.cart[id] || 0) - 1);
+    cartChanged();
+  });
+  $('clearCart').onclick = () => { S.cart = {}; cartChanged(); };
+  $('charge').onclick = charge;
+  $('btnCancel').onclick = cancelPayment;
+  $('cartCancel').onclick = cancelPayment;
+  $('btnTermCancel').onclick = cancelTerminalAction;
+  $('btnCheck').onclick = checkPaymentNow;
+  $('btnSim').onclick = simulate;
+
+  $('storeName').oninput = (e) => { S.cfg.names[S.cfg.store] = e.target.value.trim(); saveCfg(); renderBrand(); };
+  $('env').onchange = (e) => { S.cfg.env = e.target.value; S.token = null; S.terminals = []; S.cfg.terminal = ''; saveCfg(); renderTerminals(); renderCart(); };
+  $('currency').onchange = (e) => { S.cfg.currency = e.target.value; saveCfg(); renderProducts(); renderCart(); };
+  $('acct').oninput = (e) => { S.cfg.acct = e.target.value.trim(); saveCfg(); };
+  $('proxy').oninput = (e) => { S.cfg.proxy = e.target.value.trim(); S.token = null; saveCfg(); };
+  const onCred = () => {
+    S.creds.clientId = $('clientId').value.trim(); S.creds.apiKey = $('apiKey').value.trim();
+    if (S.cfg.remember) store.set('awxpos.cred', JSON.stringify(S.creds));
+    renderChips(); renderCart();
+  };
+  $('clientId').oninput = onCred; $('apiKey').oninput = onCred;
+  $('remember').onchange = (e) => {
+    S.cfg.remember = e.target.checked; saveCfg();
+    if (S.cfg.remember) store.set('awxpos.cred', JSON.stringify(S.creds)); else store.del('awxpos.cred');
+  };
+  $('showKey').onclick = () => { const k = $('apiKey'); const show = k.type === 'password'; k.type = show ? 'text' : 'password'; $('showKey').textContent = show ? 'Hide' : 'Show'; };
+  $('forget').onclick = () => {
+    if (!confirm('Clear saved credentials, logos, settings and payment records from this browser?')) return;
+    ['awxpos.cfg', 'awxpos.cred', 'awxpos.hist', 'awxpos.logo.retail', 'awxpos.logo.fnb'].forEach(store.del);
+    location.reload();
+  };
+  $('loadTerm').onclick = loadTerminals;
+  $('testCreds').onclick = testCredentials;
+  $('termSel').onchange = (e) => { S.cfg.terminal = e.target.value; saveCfg(); renderChips(); renderCart(); if (S.cfg.terminal) $('setup').open = false; };
+
+  $('logoBtn').onclick = () => $('logoFile').click();
+  $('logoFile').onchange = async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const data = await fileToLogo(f);
+      if (!store.set(logoKey(), data)) setupError('Could not save the logo (browser storage is full or blocked).');
+      renderBrand();
+    } catch (err) { setupError(err.message); }
+  };
+  $('logoClear').onclick = () => { store.del(logoKey()); renderBrand(); };
+
+  $('histBody').addEventListener('click', (e) => {
+    const rb = e.target.closest('[data-refresh]');
+    if (rb) { e.stopPropagation(); rb.disabled = true; refreshRow(+rb.dataset.refresh); return; }
+    const row = e.target.closest('tr[data-row]');
+    if (row) { const d = row.nextElementSibling; if (d) d.hidden = !d.hidden; }
+  });
+  $('clearHist').onclick = () => { if (S.cur?.active) return; S.hist = []; saveHist(); renderHistory(); };
+}
+
+/* ---------------- init ---------------- */
+function init() {
+  $('currency').innerHTML = CURRENCIES.map((c) => `<option>${c}</option>`).join('');
+  if (!CURRENCIES.includes(S.cfg.currency)) S.cfg.currency = 'HKD';
+  $('currency').value = S.cfg.currency;
+  $('env').value = S.cfg.env;
+  $('acct').value = S.cfg.acct; $('proxy').value = S.cfg.proxy || DEFAULT_PROXY;
+  $('clientId').value = S.creds.clientId; $('apiKey').value = S.creds.apiKey;
+  $('remember').checked = !!S.cfg.remember;
+  // payments left "in flight" by a previous page load can't be resumed
+  S.hist.forEach((r) => { if (r.status === 'CREATING') r.status = 'ERROR'; });
+  bind(); renderBrand(); renderProducts(); renderCart(); renderTerminals(); renderHistory(); renderLog(); renderActions();
+  if (S.creds.clientId && S.creds.apiKey && S.cfg.terminal) loadTerminals();   // restore terminal list for returning users
+}
+init();
+</script>
+</body>
+</html>
