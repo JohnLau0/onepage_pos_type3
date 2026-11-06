@@ -147,6 +147,10 @@
     .cart { position: static; }
     .pgrid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
   }
+  [hidden] { display: none !important; }
+  a.btn { text-decoration: none; display: inline-block; }
+  .hh { margin: 12px 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  #hhQr svg { width: 200px; height: 200px; background: #fff; border-radius: 8px; }
 </style>
 </head>
 <body data-store="fnb">
@@ -167,7 +171,21 @@
   <details class="card" id="setup" open>
     <summary><h2>Setup</h2><span class="chips" id="chips"></span></summary>
     <div class="setup-body">
+      <div class="row" style="margin-bottom:12px">
+        <select id="profSel" aria-label="Saved profiles"></select>
+        <button class="btn" type="button" id="profSave" title="Save the current environment, credentials, proxy and account as a named profile">Save as profile…</button>
+        <button class="btn" type="button" id="profDel">Delete</button>
+        <small style="color:var(--muted)">Profiles are kept only in this browser (localStorage, not encrypted). Demo credentials only.</small>
+      </div>
       <div class="fields">
+        <div class="field">
+          <label for="mode">Payment mode</label>
+          <select id="mode">
+            <option value="terminal">Terminal — push to a card reader via the API</option>
+            <option value="handheld">Handheld — open the Soft POS app (deep link)</option>
+          </select>
+          <small>Handheld: Charge opens <code>awxpos://pay?…</code> on an Android phone with the Soft POS app (or shows a QR code on desktop). No terminal needed; credentials are only used to confirm the result.</small>
+        </div>
         <div class="field">
           <label>Store logo</label>
           <div class="logo-row">
@@ -258,6 +276,11 @@
     <div class="st-title" id="stTitle">No payment yet</div>
     <div class="st-sub" id="stSub">Add items, pick a terminal and press Charge.</div>
     <dl class="meta" id="stMeta"></dl>
+    <div class="hh" id="hhBox" hidden>
+      <div id="hhQrWrap"><div id="hhQr"></div><small>Scan with the handheld phone's camera</small></div>
+      <a class="btn primary" id="hhLink" href="#">Open Soft POS app</a>
+      <small class="hint" id="hhLinkTxt" style="word-break:break-all;margin:0;text-align:left"></small>
+    </div>
     <div class="actions">
       <button class="btn danger" type="button" id="btnCancel" hidden>Cancel payment</button>
       <button class="btn" type="button" id="btnTermCancel" title="POST /pos/terminals/{id}/cancel_current_operation">Cancel current action on terminal</button>
@@ -306,14 +329,14 @@ const CATALOG = {
   retail: {
     label: 'Retail', defaultName: 'Urban Threads', title: 'Shop', dir: 'assets/retail/',
     items: [
-      { id: 'tee',        name: 'Basic Tee',  price: 29,  img: 'tee.png' },
-      { id: 'hoodie',     name: 'Hoodie',     price: 69,  img: 'hoodie.png' },
-      { id: 'sneakers',   name: 'Sneakers',   price: 119, img: 'sneakers.png' },
-      { id: 'cap',        name: 'Cap',        price: 25,  img: 'cap.png' },
-      { id: 'tote-bag',   name: 'Tote Bag',   price: 35,  img: 'tote-bag.png' },
-      { id: 'sunglasses', name: 'Sunglasses', price: 59,  img: 'sunglasses.png' },
-      { id: 'watch',      name: 'Watch',      price: 149, img: 'watch.png' },
-      { id: 'backpack',   name: 'Backpack',   price: 89,  img: 'backpack.png' }
+      { id: 'tee',        name: 'Basic Tee',  price: 29,  img: 'tee.svg' },
+      { id: 'hoodie',     name: 'Hoodie',     price: 69,  img: 'hoodie.svg' },
+      { id: 'sneakers',   name: 'Sneakers',   price: 119, img: 'sneakers.svg' },
+      { id: 'cap',        name: 'Cap',        price: 25,  img: 'cap.svg' },
+      { id: 'tote-bag',   name: 'Tote Bag',   price: 35,  img: 'tote-bag.svg' },
+      { id: 'sunglasses', name: 'Sunglasses', price: 59,  img: 'sunglasses.svg' },
+      { id: 'watch',      name: 'Watch',      price: 149, img: 'watch.svg' },
+      { id: 'backpack',   name: 'Backpack',   price: 89,  img: 'backpack.svg' }
     ]
   },
   fnb: {
@@ -354,7 +377,7 @@ const readJSON = (k, d) => { try { return JSON.parse(store.get(k)) ?? d; } catch
 
 /* ---------------- state ---------------- */
 const S = {
-  cfg: Object.assign({ store: 'fnb', env: 'demo', currency: 'HKD', acct: '', proxy: '', terminal: '', remember: false, names: {} }, readJSON('awxpos.cfg', {})),
+  cfg: Object.assign({ mode: 'terminal', store: 'fnb', env: 'demo', currency: 'HKD', acct: '', proxy: '', terminal: '', remember: false, names: {} }, readJSON('awxpos.cfg', {})),
   creds: { clientId: '', apiKey: '' },
   cart: {},
   terminals: [],
@@ -482,7 +505,8 @@ function renderChips() {
     `<span class="chip">${S.cfg.env === 'demo' ? 'Demo' : 'Production'}</span>`,
     S.verifiedFor && S.verifiedFor === `${S.cfg.env}|${S.creds.clientId}|${S.creds.apiKey}` ? '<span class="chip ok">Credentials verified</span>'
       : S.creds.clientId && S.creds.apiKey ? '<span class="chip">Credentials set (untested)</span>' : '<span class="chip">No credentials</span>',
-    t ? `<span class="chip ok">Terminal: ${esc(t.nickname || t.serial_number || t.id)}</span>` : '<span class="chip">No terminal</span>'
+    S.cfg.mode === 'handheld' ? '<span class="chip ok">Handheld app</span>'
+      : t ? `<span class="chip ok">Terminal: ${esc(t.nickname || t.serial_number || t.id)}</span>` : '<span class="chip">No terminal</span>'
   ];
   $('chips').innerHTML = chips.join('');
 }
@@ -563,13 +587,14 @@ function renderCart() {
   $('total').textContent = fmt(total);
   const term = S.terminals.find((t) => t.id === S.cfg.terminal);
   const busy = S.cur?.active;
+  const hh = S.cfg.mode === 'handheld';
   let why = '';
   if (busy) why = 'Payment in progress…';
-  else if (!S.creds.clientId || !S.creds.apiKey) why = 'Enter credentials in Setup';
-  else if (!term) why = 'Load and select a terminal in Setup';
+  else if (!hh && (!S.creds.clientId || !S.creds.apiKey)) why = 'Enter credentials in Setup';
+  else if (!hh && !term) why = 'Load and select a terminal in Setup';
   else if (!total) why = 'Add at least one item';
   $('charge').disabled = !!why;
-  $('charge').textContent = total ? `Charge ${fmt(total)}${term ? ' on ' + (term.nickname || term.serial_number) : ''}` : 'Charge';
+  $('charge').textContent = total ? `Charge ${fmt(total)}${hh ? ' on handheld' : term ? ' on ' + (term.nickname || term.serial_number) : ''}` : 'Charge';
   $('chargeHint').textContent = why;
   $('clearCart').disabled = busy || !lines.length;
 }
@@ -608,6 +633,7 @@ function renderActions() {
   $('cartCancel').hidden = !active;
   $('charge').hidden = active;
   $('simBox').hidden = !(active && S.cfg.env === 'demo' && S.cur.sent);
+  $('hhBox').hidden = !(active && S.cur.handheld);
 }
 
 function renderHistory() {
@@ -666,6 +692,7 @@ function mapPI(pi) {
 
 async function charge() {
   if (S.cur?.active) return;
+  if (S.cfg.mode === 'handheld') return chargeHandheld();
   const lines = cartLines(), total = cartTotal();
   const term = S.terminals.find((t) => t.id === S.cfg.terminal);
   if (!lines.length || !term) return;
@@ -778,6 +805,96 @@ async function poll(cur) {
   }
 }
 
+/* ---------------- handheld mode (deep link to the Soft POS app) ---------------- */
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+
+function loadQr() {
+  return new Promise((resolve, reject) => {
+    if (window.qrcode) return resolve();
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+    sc.onload = resolve; sc.onerror = () => reject(new Error('QR library could not be loaded'));
+    document.head.appendChild(sc);
+  });
+}
+
+async function chargeHandheld() {
+  const lines = cartLines(), total = cartTotal();
+  if (!lines.length) return;
+  const rec = {
+    order: 'POS-' + Date.now(), ts: Date.now(), amount: total / 100, currency: S.cfg.currency,
+    items: lines.map((l) => ({ name: l.name, qty: l.qty })), terminalId: 'handheld',
+    terminalName: 'Handheld app', piId: null, status: 'WAITING_FOR_CUSTOMER', detail: '', raw: null, handheld: true
+  };
+  S.hist.unshift(rec); persistRec(rec);
+  const cur = S.cur = { rec, term: null, active: true, cancelled: false, sent: false, handheld: true };
+  // The app creates the Payment Intent itself. "return" is only sent when the app runs on the same phone as this page.
+  const q = new URLSearchParams({ amount: (total / 100).toFixed(2), currency: rec.currency, order: rec.order });
+  if (IS_ANDROID) q.set('return', location.origin + location.pathname);
+  const link = 'awxpos://pay?' + q;
+  $('hhLink').href = link; $('hhLinkTxt').textContent = link;
+  $('hhQrWrap').hidden = IS_ANDROID; $('hhQr').innerHTML = '';
+  renderCart(); renderActions(); renderMeta(rec);
+  setStatus(2, '', 'Opening the Soft POS app…',
+    IS_ANDROID ? 'If nothing happens, tap "Open Soft POS app" below (the app must be installed).'
+               : 'Scan the QR code with the handheld phone, or open the link on it.');
+  if (IS_ANDROID) setTimeout(() => { location.href = link; }, 250);
+  else loadQr().then(() => {
+    const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
+    $('hhQr').innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  }).catch((e) => { $('hhQr').textContent = e.message + ' — use the link instead.'; });
+  if (S.creds.clientId && S.creds.apiKey) await pollHandheld(cur);   // optional: confirm via the API
+}
+
+// Look the Payment Intent up by merchant_order_id (the app uses the order id from the link).
+async function pollHandheld(cur) {
+  const { rec } = cur, deadline = Date.now() + POLL_TIMEOUT_MS;
+  while (cur.active && Date.now() < deadline) {
+    await sleep(POLL_MS * 2);
+    if (!cur.active) return;
+    let r;
+    try { r = await api('GET', '/api/v1/pa/payment_intents', { query: { merchant_order_id: rec.order, page_size: 5 }, quiet: true }); }
+    catch (e) { if (e.status === 0 || e.status >= 500) continue; $('stSub').textContent = 'Automatic check unavailable: ' + e.message; return; }
+    const pi = (r.items || []).find((x) => x.merchant_order_id === rec.order);
+    if (!pi) continue;
+    rec.piId = pi.id; rec.raw = pi; renderMeta(rec, pi);
+    $('stSub').textContent = `Payment Intent ${pi.id} · status: ${pi.status}`;
+    if (finishPayment(cur, rec, pi)) return;
+  }
+  if (cur.active) {
+    cur.active = false; rec.status = 'TIMEOUT'; rec.detail = '— no result received'; persistRec(rec);
+    setStatus(4, 'warn', 'No result from the handheld', 'Nothing received after 3 minutes. Check the app, then use Refresh in the records table if a Payment Intent exists.');
+    renderActions(); renderCart();
+  }
+}
+
+// The app opens <page>?awx_status=…&awx_pi=…&awx_order=… when the user taps "Return to shop".
+function applyReturn() {
+  const p = new URLSearchParams(location.search), st = p.get('awx_status');
+  if (!st) return;
+  history.replaceState(null, '', location.pathname);
+  const order = p.get('awx_order'), pi = p.get('awx_pi'), msg = p.get('awx_msg');
+  const rec = S.hist.find((r) => r.order === order) || S.hist.find((r) => r.handheld && r.status === 'WAITING_FOR_CUSTOMER');
+  if (!rec) return;
+  const ok = st === 'success';
+  if (pi) rec.piId = pi;
+  rec.status = ok ? 'SUCCEEDED' : 'FAILED';
+  rec.detail = ok ? '(reported by app)' : msg ? '— ' + msg : '';
+  rec.raw = { note: 'Reported by the handheld app via the return link — not verified', awx_status: st, awx_pi: pi, awx_order: order, awx_amount: p.get('awx_amount'), message: msg };
+  saveHist(); renderHistory(); renderMeta(rec);
+  setStatus(4, ok ? 'ok' : 'bad', ok ? 'Payment successful' : 'Payment failed',
+    ok ? `${fmt(cents(rec.amount), rec.currency)} paid on the handheld (reported by the app)` : (msg || 'The handheld app reported a failure.'));
+  if (pi && S.creds.clientId && S.creds.apiKey) refreshRow(S.hist.indexOf(rec)).then(() => { renderHistory(); renderMeta(rec, rec.raw); });
+}
+
+function applyMode() {
+  const hh = S.cfg.mode === 'handheld';
+  $('mode').value = S.cfg.mode;
+  $('loadTerm').hidden = hh; $('termSel').hidden = hh; $('btnTermCancel').hidden = hh;
+  document.querySelectorAll('#stepper .step')[1].childNodes[1].textContent = hh ? 'Opened in app' : 'Sent to terminal';
+  renderChips();
+}
+
 async function cancelPayment() {
   const cur = S.cur;
   if (!cur?.active) return;
@@ -861,6 +978,40 @@ function fileToLogo(file) {
   });
 }
 
+/* ---------------- saved profiles (this browser only) ---------------- */
+const PROF_KEY = 'awxpos.profiles';
+const loadProfiles = () => { const a = readJSON(PROF_KEY, []); return Array.isArray(a) ? a : []; };
+function renderProfiles(sel = '') {
+  $('profSel').innerHTML = '<option value="">— saved profiles —</option>' +
+    loadProfiles().map((p) => `<option value="${esc(p.name)}">${esc(p.name)} · ${esc(p.env)} · ${esc(p.currency)}</option>`).join('');
+  $('profSel').value = sel;
+  $('profDel').disabled = !sel;
+}
+function applyProfile(p) {
+  if (S.cur?.active) return;
+  Object.assign(S.cfg, { env: ENVS[p.env] ? p.env : 'demo', currency: CURRENCIES.includes(p.currency) ? p.currency : S.cfg.currency,
+    acct: p.acct || '', proxy: p.proxy || '', terminal: '' });
+  S.creds.clientId = p.clientId || ''; S.creds.apiKey = p.apiKey || '';
+  S.token = null; S.terminals = []; S.verifiedFor = '';
+  $('env').value = S.cfg.env; $('currency').value = S.cfg.currency; $('acct').value = S.cfg.acct;
+  $('proxy').value = S.cfg.proxy || DEFAULT_PROXY; $('clientId').value = S.creds.clientId; $('apiKey').value = S.creds.apiKey;
+  if (S.cfg.remember) store.set('awxpos.cred', JSON.stringify(S.creds));
+  saveCfg(); renderProducts(); renderTerminals(); renderCart(); renderChips();
+  setupError(''); setupOk(`Loaded profile "${p.name}".`);
+  if (S.cfg.mode === 'terminal' && S.creds.clientId && S.creds.apiKey) loadTerminals();
+}
+function saveProfile() {
+  if (!S.creds.clientId || !S.creds.apiKey) { setupError('Enter Client ID and API key first.'); return; }
+  const name = (prompt('Profile name', $('profSel').value || '') || '').trim();
+  if (!name) return;
+  const list = loadProfiles();
+  const p = { name, env: S.cfg.env, currency: S.cfg.currency, clientId: S.creds.clientId, apiKey: S.creds.apiKey, acct: S.cfg.acct, proxy: S.cfg.proxy };
+  const i = list.findIndex((x) => x.name === name);
+  if (i >= 0) { if (!confirm(`Overwrite profile "${name}"?`)) return; list[i] = p; } else list.push(p);
+  if (!store.set(PROF_KEY, JSON.stringify(list))) { setupError('Could not save (browser storage is full or blocked).'); return; }
+  renderProfiles(name); setupError(''); setupOk(`Saved profile "${name}" in this browser.`);
+}
+
 /* ---------------- events ---------------- */
 function bind() {
   document.querySelector('.seg').addEventListener('click', (e) => {
@@ -878,6 +1029,10 @@ function bind() {
   });
   $('clearCart').onclick = () => { S.cart = {}; cartChanged(); };
   $('charge').onclick = charge;
+  $('mode').onchange = (e) => {
+    if (S.cur?.active) { e.target.value = S.cfg.mode; return; }
+    S.cfg.mode = e.target.value; saveCfg(); applyMode(); renderCart();
+  };
   $('btnCancel').onclick = cancelPayment;
   $('cartCancel').onclick = cancelPayment;
   $('btnTermCancel').onclick = cancelTerminalAction;
@@ -902,8 +1057,17 @@ function bind() {
   $('showKey').onclick = () => { const k = $('apiKey'); const show = k.type === 'password'; k.type = show ? 'text' : 'password'; $('showKey').textContent = show ? 'Hide' : 'Show'; };
   $('forget').onclick = () => {
     if (!confirm('Clear saved credentials, logos, settings and payment records from this browser?')) return;
-    ['awxpos.cfg', 'awxpos.cred', 'awxpos.hist', 'awxpos.logo.retail', 'awxpos.logo.fnb'].forEach(store.del);
+    ['awxpos.cfg', 'awxpos.cred', 'awxpos.hist', PROF_KEY, 'awxpos.logo.retail', 'awxpos.logo.fnb'].forEach(store.del);
     location.reload();
+  };
+  $('profSel').onchange = (e) => {
+    const p = loadProfiles().find((x) => x.name === e.target.value);
+    renderProfiles(p ? p.name : ''); if (p) applyProfile(p);
+  };
+  $('profSave').onclick = saveProfile;
+  $('profDel').onclick = () => {
+    const name = $('profSel').value; if (!name || !confirm(`Delete profile "${name}"?`)) return;
+    store.set(PROF_KEY, JSON.stringify(loadProfiles().filter((x) => x.name !== name))); renderProfiles();
   };
   $('loadTerm').onclick = loadTerminals;
   $('testCreds').onclick = testCredentials;
@@ -940,8 +1104,11 @@ function init() {
   $('remember').checked = !!S.cfg.remember;
   // payments left "in flight" by a previous page load can't be resumed
   S.hist.forEach((r) => { if (r.status === 'CREATING') r.status = 'ERROR'; });
+  renderProfiles();
   bind(); renderBrand(); renderProducts(); renderCart(); renderTerminals(); renderHistory(); renderLog(); renderActions();
-  if (S.creds.clientId && S.creds.apiKey && S.cfg.terminal) loadTerminals();   // restore terminal list for returning users
+  applyMode();
+  if (S.cfg.mode === 'terminal' && S.creds.clientId && S.creds.apiKey && S.cfg.terminal) loadTerminals();   // restore terminal list for returning users
+  applyReturn();
 }
 init();
 </script>
